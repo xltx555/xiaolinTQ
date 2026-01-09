@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>天气</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;700&family=Noto+Sans+SC:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://at.alicdn.com/t/font_2010774_34x3ajudb1g.css">
+    <style>
+        :root {
+            --primary: #4facfe;
+            --secondary: #00f2fe;
+            --text-primary: #e0f7fa;
+            --text-secondary: #b2ebf2;
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --card-border: rgba(255, 255, 255, 0.1);
+            --shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans SC', 'Microsoft Yahei', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            min-height: 100vh;
+            color: var(--text-primary);
+            overflow-x: hidden;
+            transition: background 0.5s ease;
+            position: relative;
+        }
+
+        /* === 动态特效容器 === */
+        #background-effects {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        /* 雨滴动画 */
+        .raindrop {
+            position: absolute;
+            bottom: 100%;
+            width: 1px;
+            height: 15px;
+            background: linear-gradient(to bottom, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.2));
+            border-radius: 0 0 5px 5px;
+            opacity: 0;
+            animation: rain 1s linear infinite;
+        }
+
+        @keyframes rain {
+            0% { bottom: 100%; opacity: 0; }
+            50% { opacity: 1; }
+            100% { bottom: -10%; opacity: 0; }
+        }
+
+        /* 阳光动画 */
+        .sun-glare {
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, transparent 40%, rgba(255, 255, 200, 0.1) 60%, rgba(255, 255, 200, 0.05) 80%);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 2s ease;
+        }
+
+        .sun-glare.active {
+            opacity: 1;
+        }
+
+        /* === 布局与UI === */
+        .container {
+            max-width: 1000px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .nav {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: 2px solid var(--primary);
+            border-radius: 50px;
+            background: rgba(79, 172, 254, 0.1);
+            color: var(--primary);
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            min-width: 140px;
+        }
+
+        .btn:hover {
+            background: var(--primary);
+            color: #16213e;
+            transform: translateY(-3px);
+        }
+
+        .input-group {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 15px;
+            display: none;
+            justify-content: center;
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--card-border);
+        }
+
+        .input-group input {
+            flex: 1;
+            max-width: 400px;
+            padding: 15px 20px;
+            border: none;
+            border-radius: 50px;
+            font-size: 16px;
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+            outline: none;
+        }
+
+        .input-group button {
+            margin-left: 10px;
+            background: #4caf50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 50px;
+        }
+
+        /* === 卡片样式 === */
+        .weather-wrapper {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .card {
+            flex: 1;
+            min-width: 300px;
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--card-border);
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        .realtime-card {
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .temp-display {
+            font-size: 5em;
+            font-weight: bold;
+            background: linear-gradient(to right, #fff, #a0eaff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 20px 0;
+            font-family: 'Montserrat', monospace;
+        }
+
+        .weather-icon {
+            font-size: 5em;
+            margin: 20px 0;
+            display: inline-block;
+            animation: float 4s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 14px;
+        }
+
+        .info-label {
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .forecast-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .forecast-table th {
+            background: rgba(79, 172, 254, 0.2);
+            color: var(--primary);
+            padding: 12px;
+            text-align: center;
+        }
+
+        .forecast-table td {
+            padding: 12px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .loading, .error {
+            text-align: center;
+            padding: 60px 20px;
+            background: var(--card-bg);
+            border-radius: 20px;
+            border: 1px solid var(--card-border);
+        }
+
+        .error {
+            color: #f44336;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 背景特效层 -->
+    <div id="background-effects"></div>
+
+    <div class="container">
+        <header>
+            <h1>小林天气</h1>
+            <p>高效便利 · 全量数据</p>
+        </header>
+
+        <div class="nav">
+            <button class="btn" onclick="autoLocation()">🌍 自动定位</button>
+            <button class="btn" onclick="toggleInput()">🏙️ 手动查询</button>
+        </div>
+
+        <div class="input-group" id="inputGroup">
+            <input type="text" id="cityInput" placeholder="请输入城市名称 (例如: 北京)" onkeypress="if(event.key==='Enter')manualQuery()">
+            <button onclick="manualQuery()">🚀 查询</button>
+        </div>
+
+        <div id="loading" class="loading">
+            <p>正在为您连接气象卫星...</p>
+        </div>
+
+        <div id="error" class="error"></div>
+
+        <div id="weatherResult" class="weather-wrapper">
+            <!-- 实时数据卡片 -->
+            <div class="card realtime-card">
+                <div class="city-header">
+                    <h2 id="cityName">东莞市</h2>
+                    <p>更新时间: <span id="reportTime">--:--</span></p>
+                </div>
+                <div class="weather-icon">
+                    <i id="icon" class="icon icon-qing"></i>
+                </div>
+                <div class="temp-display"><span id="temperature">--</span>°C</div>
+                <div style="font-size: 1.5em; margin: 10px 0;" id="weather">加载中...</div>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">湿度</span>
+                        <span id="humidity">--</span>%
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">风向</span>
+                        <span id="windDirection">--</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">风力</span>
+                        <span id="windPower">--</span>级
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">气压</span>
+                        <span id="pressure">--</span> hPa
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">能见度</span>
+                        <span id="visibility">--</span> km
+                    </div>
+                </div>
+            </div>
+
+            <!-- 预报数据卡片 -->
+            <div class="card forecast-card">
+                <h2 style="text-align: center; margin-bottom: 20px; color: var(--primary); font-weight: 500;">📅 未来三天</h2>
+                <table class="forecast-table">
+                    <thead>
+                        <tr>
+                            <th>日期</th>
+                            <th>天气</th>
+                            <th>温度</th>
+                            <th>风力</th>
+                        </tr>
+                    </thead>
+                    <tbody id="forecastBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const AMAP_KEY = "e91ee448c184c79c045440ececb69a1e";
+        const bgEffects = document.getElementById('background-effects');
+
+        document.addEventListener("DOMContentLoaded", () => {
+            showLoading();
+            queryWeather("东莞");
+        });
+
+        // UI控制函数
+        function showLoading() {
+            document.getElementById("loading").style.display = "block";
+            document.getElementById("weatherResult").style.display = "none";
+            document.getElementById("error").style.display = "none";
+            document.getElementById("inputGroup").style.display = "none";
+        }
+
+        function showError(msg) {
+            document.getElementById("loading").style.display = "none";
+            document.getElementById("weatherResult").style.display = "none";
+            document.getElementById("error").style.display = "block";
+            document.getElementById("error").innerHTML = msg;
+        }
+
+        function showResult() {
+            document.getElementById("loading").style.display = "none";
+            document.getElementById("error").style.display = "none";
+            document.getElementById("weatherResult").style.display = "flex";
+        }
+
+        function toggleInput() {
+            const group = document.getElementById("inputGroup");
+            group.style.display = group.style.display === "flex" ? "none" : "flex";
+        }
+
+        function standardizeCity(cityName) {
+            if (!cityName) return "东莞";
+            ["市", "省", "区", "县", " "].forEach(suf => {
+                cityName = cityName.split(suf).join("");
+            });
+            if (["北京", "上海", "广州", "深圳", "重庆"].includes(cityName)) {
+                cityName += "市";
+            }
+            return cityName.trim();
+        }
+
+        // 核心查询逻辑
+        async function queryWeather(cityName) {
+            showLoading();
+            cityName = standardizeCity(cityName);
+
+            try {
+                // 获取实时数据 (base)
+                const baseRes = await fetch(`https://restapi.amap.com/v3/weather/weatherInfo?key=${AMAP_KEY}&city=${cityName}&extensions=base`);
+                const baseData = await baseRes.json();
+
+                // 获取预报数据 (all)
+                const allRes = await fetch(`https://restapi.amap.com/v3/weather/weatherInfo?key=${AMAP_KEY}&city=${cityName}&extensions=all`);
+                const allData = await allRes.json();
+
+                if (baseData.status !== "1" || allData.status !== "1") {
+                    throw new Error(baseData.info || "API请求失败");
+                }
+
+                const live = baseData.lives[0];
+                const casts = allData.forecasts[0]?.casts || [];
+
+                // ==========================================
+                // 🎨 1. 动态特效与背景
+                // ==========================================
+                // 清除旧特效
+                bgEffects.innerHTML = '';
+                
+                const weatherText = live.weather;
+                
+                if (weatherText.includes('雨')) {
+                    // 下雨特效
+                    for (let i = 0; i < 50; i++) {
+                        const drop = document.createElement('div');
+                        drop.className = 'raindrop';
+                        drop.style.left = `${Math.random() * 100}%`;
+                        drop.style.animationDuration = `${1 + Math.random()}s`;
+                        drop.style.opacity = Math.random() * 0.5 + 0.5;
+                        bgEffects.appendChild(drop);
+                    }
+                } else if (weatherText.includes('晴')) {
+                    // 晴天特效
+                    const glare = document.createElement('div');
+                    glare.className = 'sun-glare';
+                    bgEffects.appendChild(glare);
+                    setTimeout(() => glare.classList.add('active'), 100);
+                }
+
+                // ==========================================
+                // 📊 2. 填充数据 (修复气压和能见度)
+                // ==========================================
+                document.getElementById("cityName").textContent = live.city || cityName;
+                document.getElementById("temperature").textContent = live.temperature || "--";
+                document.getElementById("weather").textContent = live.weather;
+                document.getElementById("windDirection").textContent = live.winddirection || "--";
+                document.getElementById("windPower").textContent = live.windpower || "--";
+                document.getElementById("humidity").textContent = live.humidity || "--";
+                
+                // 修复：尝试显示气压和能见度
+                // 注意：高德免费版API可能不返回这两个字段，如果API没返回则显示 --
+                document.getElementById("pressure").textContent = live.pressure || "--";
+                document.getElementById("visibility").textContent = live.visibility || "--";
+
+                document.getElementById("reportTime").textContent = live.reporttime || new Date().toLocaleString();
+
+                // 更新图标
+                const icon = document.getElementById("icon");
+                if (weatherText.includes("雨")) icon.className = "icon icon-yu";
+                else if (weatherText.includes("晴")) icon.className = "icon icon-qing";
+                else if (weatherText.includes("雪")) icon.className = "icon icon-xue";
+                else icon.className = "icon icon-duoyun";
+
+                // ==========================================
+                // 📅 3. 填充预报
+                // ==========================================
+                const forecastBody = document.getElementById("forecastBody");
+                forecastBody.innerHTML = "";
+                
+                casts.slice(0, 3).forEach(day => {
+                    const row = document.createElement("tr");
+                    row.innerHTML = `
+                        <td>${day.date}</td>
+                        <td>${day.dayweather}</td>
+                        <td>${day.daytemp}°C / ${day.nighttemp}°C</td>
+                        <td>${day.daypower}级</td>
+                    `;
+                    forecastBody.appendChild(row);
+                });
+
+                showResult();
+
+            } catch (error) {
+                console.error("查询错误:", error);
+                showError(`数据加载失败: ${error.message}`);
+            }
+        }
+
+        // 交互函数
+        async function autoLocation() {
+            try {
+                showLoading();
+                const url = `https://restapi.amap.com/v3/ip?key=${AMAP_KEY}`;
+                const response = await fetch(url);
+                const data = await response.json();
+                let city = "东莞";
+                if (data.status === "1" && data.city) {
+                    city = standardizeCity(data.city);
+                }
+                queryWeather(city);
+            } catch (e) {
+                queryWeather("东莞");
+            }
+        }
+
+        function manualQuery() {
+            const input = document.getElementById("cityInput");
+            const cityName = input.value.trim();
+            if (!cityName) {
+                alert("请输入城市名称！");
+                return;
+            }
+            document.getElementById("inputGroup").style.display = "none";
+            queryWeather(cityName);
+        }
+    </script>
+</body>
+</html>
